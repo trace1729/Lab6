@@ -1,0 +1,1 @@
+zip ../Simulator.zip -r . --exclude=".vscode" --exclude=".git/*" --exclude=".vscode/*" --exclude="build/*" --exclude=".git*"

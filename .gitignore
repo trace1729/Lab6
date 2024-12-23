@@ -1,0 +1,11 @@
+*.*
+*
+!/*
+!/include/*
+!/src/*
+!Makefile
+!README.md
+!.gitignore
+!*.sh
+/build
+*.pdf

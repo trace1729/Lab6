@@ -3,17 +3,42 @@
 
 #include <vector>
 #include <string>
-#include <iostream>
+#include "riscv.h"
+class Simulator;
+using namespace RISCV;
+
+// Instruction states
+enum class InstructionState { STALL, ISSUE, READ_OPERANDS, EXECUTE, WRITE_BACK, FINNISH};
+enum class FunctionUnitType { NONE, ALU, MUL, MEM};
+
+// Instruction structure
+struct Instruction {
+    int pc;            
+    int destReg;       // Destination register (Fi)
+    int srcReg1;       // Source register 1 (Fj)
+    int srcReg2;       // Source register 2 (Fk)
+    InstructionState state;  
+    int remainingExecCycles = 0;  
+    RISCV::InstType opType;
+    uint32_t inst;
+    std::string processingUnit = "";
+    Pipe_Op op; //TODO contains duplicate, fix it later
+    std::string instStr = "";
+};
 
 class Tomasulo {
-private:
+public:
     // Re-Order Buffer (ROB) entry structure
     struct ROBEntry {
-        std::string instructionType;
         int destination;
         int value;
         bool ready = false;   // Whether the result is ready
         bool busy = false;    // Whether the instruction is under execution
+        int remainingExecCycles = 0; 
+        Pipe_Op op; //TODO contains duplicate, fix it later
+        RISCV::InstType instructionType;
+        std::string instStr = "";
+        InstructionState state;  
     };
 
     // Reservation Station (RS) entry structure
@@ -38,7 +63,6 @@ private:
     int numFUs = 4;                        // Number of available functional units (e.g., 4 ALUs)
     int pc = 0;                             // Program Counter
 
-public:
     Tomasulo(int robSize, int rsSize, int regCount);
     ~Tomasulo();
 
@@ -49,10 +73,15 @@ public:
     void commit();
 
     // Helper methods
-    int allocateROBEntry(const std::string& instType, int destination);
-    int allocateRS(const std::string& op, int dest, int qj, int qk);
+    int allocateROBEntry(InstType opType, int destination);
+    int allocateRS(InstType opType, int dest, int qj, int qk);
     void updateRegisterStatus(int regIndex, int robIndex);
     void clearRegisterStatus(int regIndex);
+    FunctionUnitType mapInstructionToFU(RISCV::InstType type);
+    std::string findAvailableFU(FunctionUnitType f_type);
+    bool execArthimetic(Instruction* inst, Simulator* simu);
+    bool decode(uint32_t inst, uint64_t* reg, Instruction* score_inst, Simulator* simu);
+
 
     // Debugging methods
     void printROB();

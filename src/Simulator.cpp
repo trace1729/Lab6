@@ -3,7 +3,6 @@
 #include <fstream>
 #include <string>
 
-#include "Scoreboard.h"
 #include "Simulator.h"
 #include "riscv.h"
 #include "Debug.h"
@@ -143,12 +142,101 @@ void Simulator::simulate() {
   // saveSimulationData("simulation.json");
 }
 
-void Simulator::issue() {
-  
-  // update pc
-  this->pc += 4;
-}
+Instruction fetchInstruction(uint64_t inst);
 
+void Simulator::issue() {
+
+    uint64_t pc;
+    uint32_t inst;
+
+    pc = this->pc;
+    inst = memory->getInt(pc);
+    Instruction ins;
+    bool status = this->tomasulo->decode(inst, this->reg, &ins, this);
+    if (!status) {
+      dbgprintf("Error!");
+      panic("Error");
+    }
+
+    InstType instType = ins.opType;        // Example: "ADD", "LW", "SW"
+    int rd = ins.destReg;                        // Destination register
+    int rs = ins.srcReg1;                        // Source register 1
+    int rt = ins.srcReg2;                        // Source register 2 (if applicable)
+
+    // Check for branches or jumps (stall if needed)
+    if (isJump(instType) || isBranch(instType)) {
+        return; // Stall until branch/jump is resolved
+    }
+
+    // Step 1: Allocate ROB Entry
+    int robIndex = tomasulo->allocateROBEntry(instType, rd);
+    if (robIndex == -1) {
+        return; // Stall if ROB is full
+    }
+
+    // Step 2: Allocate RS Entry
+    int rsIndex = tomasulo->allocateRS(instType, robIndex, -1, -1);
+    if (rsIndex == -1) {
+        return; // Stall if RS is full
+    }
+
+    Tomasulo::ReservationStation& rsTableEntry = tomasulo->rs[rsIndex];
+    
+    ins.state = InstructionState::ISSUE;
+
+    // Step 3: Update RS[r] for rs and rt
+    if (rs >= 0) { // If rs is a valid register
+        if (tomasulo->registerStatus[rs].busy) {
+            int robIndexSrc = tomasulo->registerStatus[rs].robIndex;
+            Tomasulo::ROBEntry& robEntry = tomasulo->rob[robIndexSrc];
+            if (robEntry.ready) {
+                rsTableEntry.vj = robEntry.value;
+                rsTableEntry.qj = -1; // Operand is ready
+            } else {
+                rsTableEntry.qj = robIndexSrc; // Tag ROB index
+            }
+        } else {
+            rsTableEntry.vj = reg[rs]; // Immediate value from register file
+            rsTableEntry.qj = -1;     // Operand is ready
+        }
+    }
+
+    if (rt >= 0) { // If rt is a valid register
+        Tomasulo::RegisterStatus& regStatusEntry = tomasulo->registerStatus[rt];
+        if (regStatusEntry.busy) {
+            int robIndexSrc = regStatusEntry.robIndex;
+            Tomasulo::ROBEntry& robEntry = tomasulo->rob[robIndexSrc];
+            if (robEntry.ready) {
+                rsTableEntry.vk = robEntry.value;
+                rsTableEntry.qk = -1; // Operand is ready
+            } else {
+                rsTableEntry.qk = robIndexSrc; // Tag ROB index
+            }
+        } else {
+            rsTableEntry.vk = reg[rt]; // Immediate value from register file
+            rsTableEntry.qk = -1;     // Operand is ready
+        }
+    }
+
+    // Step 4: Update RS Entry
+    rsTableEntry.busy = true;
+    rsTableEntry.dest = robIndex; // ROB index for result destination
+    rsTableEntry.op = instType;   // Instruction type
+
+    // Step 5: Update ROB Entry
+    tomasulo->rob[robIndex].instructionType = instType;
+    tomasulo->rob[robIndex].destination = rd;
+    tomasulo->rob[robIndex].ready = false; // Set to true in WriteBack
+
+    // Step 6: Update Register Status Table for rd
+    if (rd >= 0) { // For instructions that have a destination register
+        tomasulo->registerStatus[rd].robIndex = robIndex;
+        tomasulo->registerStatus[rd].busy = true;
+    }
+
+    // Step 7: Increment PC
+    pc += 4; // Move to the next instruction
+}
 
 void Simulator::execute() {
   

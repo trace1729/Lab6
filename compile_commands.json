@@ -1,0 +1,74 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-I/home/trace/trace/learning/courses/SHTech-CS211/Lab6/include",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-g",
+      "-std=gnu++11",
+      "-c",
+      "-o",
+      "CMakeFiles/Simulator.dir/src/MainCPU.cpp.o",
+      "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/src/MainCPU.cpp"
+    ],
+    "directory": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/build",
+    "file": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/src/MainCPU.cpp",
+    "output": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/build/CMakeFiles/Simulator.dir/src/MainCPU.cpp.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-I/home/trace/trace/learning/courses/SHTech-CS211/Lab6/include",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-g",
+      "-std=gnu++11",
+      "-c",
+      "-o",
+      "CMakeFiles/Simulator.dir/src/MemoryManager.cpp.o",
+      "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/src/MemoryManager.cpp"
+    ],
+    "directory": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/build",
+    "file": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/src/MemoryManager.cpp",
+    "output": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/build/CMakeFiles/Simulator.dir/src/MemoryManager.cpp.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-I/home/trace/trace/learning/courses/SHTech-CS211/Lab6/include",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-g",
+      "-std=gnu++11",
+      "-c",
+      "-o",
+      "CMakeFiles/Simulator.dir/src/Simulator.cpp.o",
+      "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/src/Simulator.cpp"
+    ],
+    "directory": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/build",
+    "file": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/src/Simulator.cpp",
+    "output": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/build/CMakeFiles/Simulator.dir/src/Simulator.cpp.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/c++",
+      "-I/home/trace/trace/learning/courses/SHTech-CS211/Lab6/include",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-g",
+      "-std=gnu++11",
+      "-c",
+      "-o",
+      "CMakeFiles/Simulator.dir/src/Tomasulo.cpp.o",
+      "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/src/Tomasulo.cpp"
+    ],
+    "directory": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/build",
+    "file": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/src/Tomasulo.cpp",
+    "output": "/home/trace/trace/learning/courses/SHTech-CS211/Lab6/build/CMakeFiles/Simulator.dir/src/Tomasulo.cpp.o"
+  }
+]

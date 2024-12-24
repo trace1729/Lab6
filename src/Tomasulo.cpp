@@ -1,7 +1,7 @@
-#include "tomasulo.h"
 #include <iostream>
 #include <string>
 #include <vector>
+#include "Tomasulo.h"
 
 Tomasulo::Tomasulo(int robSize, int rsSize, int regCount) : 
     rob(robSize), rs(rsSize), registerStatus(regCount) {}
@@ -23,7 +23,13 @@ int Tomasulo::allocateROBEntry(const std::string& instType, int destination) {
 int Tomasulo::allocateRS(const std::string& op, int dest, int qj, int qk) {
     for (int i = 0; i < rs.size(); ++i) {
         if (!rs[i].busy) {
-            rs[i] = {op, 0, 0, qj, qk, dest, true};
+            rs[i].op = op;
+            rs[i].vj = 0;
+            rs[i].vk = 0;
+            rs[i].qj = qj;
+            rs[i].qj = qk;
+            rs[i].dest = dest;
+            rs[i].busy = true;
             return i;
         }
     }
@@ -41,90 +47,19 @@ void Tomasulo::clearRegisterStatus(int regIndex) {
 }
 
 void Tomasulo::issue() {
-    // Fetch the next instruction (simulated by incrementing the program counter)
-    // Decode the instruction and allocate ROB and RS entries
-
-    this->pc += 4; // Simulate instruction fetch
-    // Example, assume we have an ADD instruction
-    std::string instType = "ADD";
-    int rd = 2; // destination register for the ADD instruction
-    int rs1 = 3, rs2 = 4; // source registers for the ADD instruction
-
-    // Try allocating ROB and RS entries
-    int robIndex = allocateROBEntry(instType, rd);
-    if (robIndex == -1) return; // ROB is full
-
-    int rsIndex = allocateRS(instType, robIndex, -1, -1);
-    if (rsIndex == -1) return; // RS is full
-
-    // Handle operands for source registers
-    if (registerStatus[rs1].busy) {
-        int robIndexSrc1 = registerStatus[rs1].robIndex;
-        rs[rsIndex].qj = robIndexSrc1;
-    } else {
-        rs[rsIndex].vj = reg[rs1];
-        rs[rsIndex].qj = -1;
-    }
-
-    if (registerStatus[rs2].busy) {
-        int robIndexSrc2 = registerStatus[rs2].robIndex;
-        rs[rsIndex].qk = robIndexSrc2;
-    } else {
-        rs[rsIndex].vk = reg[rs2];
-        rs[rsIndex].qk = -1;
-    }
-
-    // Update RS and ROB accordingly
-    rob[robIndex].instructionType = instType;
-    rob[robIndex].destination = rd;
-    rob[robIndex].ready = false;
+    
 }
 
 void Tomasulo::execute() {
-    for (int i = 0; i < rs.size(); ++i) {
-        if (!rs[i].busy) continue;
-
-        if (rs[i].qj == -1 && rs[i].qk == -1) {
-            // Operands are ready, perform the operation
-            int result = 0;
-            if (rs[i].op == "ADD") {
-                result = rs[i].vj + rs[i].vk;
-            } else if (rs[i].op == "SUB") {
-                result = rs[i].vj - rs[i].vk;
-            }
-            // Update the result in the ROB
-            rob[rs[i].dest].value = result;
-            rob[rs[i].dest].ready = true;
-
-            // Clear the RS entry
-            rs[i].busy = false;
-        }
-    }
+    
 }
 
 void Tomasulo::writeBack() {
-    // Iterate over the RS and check if any instruction finished executing
-    for (int i = 0; i < rs.size(); ++i) {
-        if (!rs[i].busy && rs[i].dest != -1) {
-            // Get corresponding ROB entry
-            int robIndex = rs[i].dest;
-            rob[robIndex].value = rs[i].vj; // or rs[i].vk based on the type of instruction
-            rob[robIndex].ready = true;
-        }
-    }
+    
 }
 
 void Tomasulo::commit() {
-    // Commit the instruction at the head of the ROB
-    if (!rob[robHead].ready) return; // The instruction is not ready yet to commit
-
-    // Write result to the register file or memory
-    int dest = rob[robHead].destination;
-    reg[dest] = rob[robHead].value;  // Write back to register file
-
-    // Clear the ROB entry after commit
-    rob[robHead].busy = false;
-    robHead = (robHead + 1) % rob.size();
+    
 }
 
 void Tomasulo::printROB() {

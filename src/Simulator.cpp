@@ -7,6 +7,7 @@
 #include "Simulator.h"
 #include "riscv.h"
 #include "Debug.h"
+#include "Tomasulo.h"
 
 namespace RISCV {
 const char *REGNAME[32] = {
@@ -62,6 +63,7 @@ Simulator::Simulator(MemoryManager *memory) {
   for (int i = 0; i < REGNUM; ++i) {
     this->reg[i] = 0;
   }
+  this->tomasulo = new Tomasulo(5, 9, 32);
 }
 
 Simulator::~Simulator() {}
@@ -134,7 +136,9 @@ void Simulator::simulate() {
       }
     }
     if (cnt++ > 20) return;
-    std::cout << this->scoreboard->toString() << std::endl;
+    this->tomasulo->printROB();
+    this->tomasulo->printRS();
+    this->tomasulo->printRegisterStatus();
   }
   // saveSimulationData("simulation.json");
 }
@@ -282,28 +286,28 @@ void Simulator::panic(const char *format, ...) {
 
 using json = nlohmann::json;
 
-// void Simulator::saveCycleData(int currentCycle) {
-//     json cycleJson;
+void Simulator::saveCycleData(int currentCycle) {
+    // json cycleJson;
 
-//     // Add current cycle number
-//     cycleJson["cycle"] = currentCycle;
+    // // Add current cycle number
+    // cycleJson["cycle"] = currentCycle;
 
-//     cycleJson["scoreboard"] = this->scoreboard->toJson();
+    // cycleJson["scoreboard"] = this->scoreboard->toJson();
 
-//     // Add register values
-//     cycleJson["reg"] = std::vector<uint64_t>(std::begin(reg), std::end(reg));
+    // // Add register values
+    // cycleJson["reg"] = std::vector<uint64_t>(std::begin(reg), std::end(reg));
 
-//     // Append to simulationData
-//     simulationData["cycles"].push_back(cycleJson);
-// }
+    // // Append to simulationData
+    // simulationData["cycles"].push_back(cycleJson);
+}
 
-// void Simulator::saveSimulationData(const std::string& filename) const {
-//     std::ofstream file(filename);
-//     if (file.is_open()) {
-//         file << simulationData.dump(4); // Pretty-print with 4-space indentation
-//         file.close();
-//         std::cout << "Simulation data saved to " << filename << std::endl;
-//     } else {
-//         std::cerr << "Failed to open file: " << filename << std::endl;
-//     }
-// }
+void Simulator::saveSimulationData(const std::string& filename) const {
+    // std::ofstream file(filename);
+    // if (file.is_open()) {
+    //     file << simulationData.dump(4); // Pretty-print with 4-space indentation
+    //     file.close();
+    //     std::cout << "Simulation data saved to " << filename << std::endl;
+    // } else {
+    //     std::cerr << "Failed to open file: " << filename << std::endl;
+    // }
+}

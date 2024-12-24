@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "MemoryManager.h"
+#include "Tomasulo.h"
 #include "riscv.h"
 #include <nlohmann/json.hpp>
 
@@ -23,7 +24,7 @@ public:
   uint32_t stackBase;
   uint32_t maximumStackSize;
   MemoryManager *memory;
-  Scoreboard* scoreboard;
+  Tomasulo* tomasulo;
 
   Simulator(MemoryManager *memory);
   ~Simulator();

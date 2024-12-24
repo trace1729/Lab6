@@ -1,63 +1,68 @@
-// Tomasulo.h
 #ifndef TOMASULO_H
 #define TOMASULO_H
 
-#include <iostream>
 #include <vector>
 #include <string>
-#include <queue>
-
-// Re-Order Buffer (ROB)
-struct ROBEntry {
-    std::string instructionType;
-    int destination;
-    int value;
-    bool ready = false;
-    bool busy = false;
-};
-
-// Reservation Station (RS)
-struct ReservationStation {
-    std::string op;
-    int vj = 0, vk = 0;
-    int qj = -1, qk = -1; // -1 indicates the value is ready
-    int dest = -1;        // ROB index
-    bool busy = false;
-};
-
-// Register Status Data Structure (RSD)
-struct RegisterStatus {
-    int robIndex = -1; // -1 indicates the register value is ready
-};
+#include <iostream>
 
 class Tomasulo {
+private:
+    // Re-Order Buffer (ROB) entry structure
+    struct ROBEntry {
+        std::string instructionType;
+        int destination;
+        int value;
+        bool ready = false;   // Whether the result is ready
+        bool busy = false;    // Whether the instruction is under execution
+    };
+
+    // Reservation Station (RS) entry structure
+    struct ReservationStation {
+        std::string op;        // Operation type (e.g., ADD, SUB, LOAD, STORE)
+        int vj = 0, vk = 0;   // Values for operands
+        int qj = -1, qk = -1; // ROB entry indexes for operands, -1 if value is available
+        int dest = -1;         // ROB index for result destination
+        bool busy = false;     // Whether the functional unit is busy
+    };
+
+    // Register Status Data Structure (RSD) for tracking register usage
+    struct RegisterStatus {
+        int robIndex = -1;     // ROB entry index for this register
+        bool busy = false;     // Whether the register is busy
+    };
+
+    std::vector<ROBEntry> rob;              // Re-Order Buffer
+    std::vector<ReservationStation> rs;     // Reservation Stations
+    std::vector<RegisterStatus> registerStatus; // Register Status Data Structure
+    int robHead = 0, robTail = 0;           // Head and tail pointers for ROB
+    int numFUs = 4;                        // Number of available functional units (e.g., 4 ALUs)
+    int pc = 0;                             // Program Counter
+
 public:
-    std::vector<ROBEntry> ROB;
-    int ROBHead = 0, ROBTail = 0;
-    
-    std::vector<ReservationStation> RS;
-    std::vector<RegisterStatus> RSD;
-
     Tomasulo(int robSize, int rsSize, int regCount);
+    ~Tomasulo();
 
-    // Methods for ROB
-    int allocateROBEntry(const std::string& instructionType, int destination);
-    void updateROBEntry(int index, int value);
-    bool commitROBEntry();
+    // Methods for managing the pipeline
+    void issue();
+    void execute();
+    void writeBack();
+    void commit();
 
-    // Methods for Reservation Stations
+    // Helper methods
+    int allocateROBEntry(const std::string& instType, int destination);
     int allocateRS(const std::string& op, int dest, int qj, int qk);
-    void updateRSOperands(int robIndex, int value);
-
-    // Methods for Register Status
     void updateRegisterStatus(int regIndex, int robIndex);
     void clearRegisterStatus(int regIndex);
-    int getRegisterStatus(int regIndex);
 
-    // Debugging Utilities
+    // Debugging methods
     void printROB();
     void printRS();
-    void printRSD();
+    void printRegisterStatus();
+
+    // Helper functions to handle instruction types
+    bool isArithmeticInstruction(const std::string& op);
+    bool isLoadInstruction(const std::string& op);
+    bool isStoreInstruction(const std::string& op);
 };
 
 #endif // TOMASULO_H

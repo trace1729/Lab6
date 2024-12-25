@@ -1,0 +1,141 @@
+To guide you through implementing the out-of-order issue and execute, but in-order commit, using the **Tomasulo algorithm** approach in the `Simulator.cpp`, I’ve created a **metaprompt** that will help break down the entire process into manageable steps. The **metaprompt** will cover each phase of your pipeline: **Issue**, **Execute**, **WriteBack**, and **Commit**—focusing on data structures like the **Re-Order Buffer (ROB)**, **Reservation Stations (RS)**, and **Register Status Table**.
+
+---
+
+### **Metaprompt:**
+
+You are implementing an out-of-order issue and execute, but in-order commit pipeline using **Tomasulo's Algorithm**. The goal is to adapt the provided `Simulator.cpp` to manage instructions through four main stages: **Issue**, **Execute**, **WriteBack**, and **Commit**. Each stage involves updating the corresponding data structures, and in particular, you will be working with **Re-Order Buffer (ROB)**, **Reservation Stations (RS)**, and **Register Status Table**.
+
+For each stage, generate detailed prompts to:
+
+1. **Describe the function of each data structure** and how they interact at each stage.
+2. **Step-by-step instructions for implementing** each stage in the simulator code.
+3. **Debugging and testing strategies** for verifying correct operation at each stage.
+4. **How each part of the process integrates** with the existing `Simulator.cpp` structure.
+
+---
+
+### **Stage 1: Issue**
+
+**Objective:**
+- In the **Issue Stage**, instructions are fetched, decoded, and entries are allocated in both the **Re-Order Buffer (ROB)** and **Reservation Stations (RS)**.
+- For instructions with registers, we need to check their status and assign either **immediate values** or **tags from ROB**.
+
+**Prompts:**
+
+1. **Data Structures Affected**:
+   - **ROB**: Allocate a new entry for the instruction.
+   - **RS**: Allocate a reservation station for execution.
+   - **Register Status Table**: Track the status of registers and link them to ROB entries.
+
+2. **Implementing the Issue Stage**:
+   - Fetch the instruction at the current **PC**.
+   - Decode the instruction to get **instType**, **rd**, **rs**, and **rt**.
+   - Check for any previous **branch** or **jump** instructions and stall if needed.
+   - Allocate **ROB** (b) and **RS** (r) entries.
+   - For **rs** and **rt** fields, update **RS[r]** based on the **Register Status Table**.
+   - If operands are ready, set **Vj** and **Vk**. If not, set **Qj** and **Qk** to hold the corresponding ROB tags.
+   - If an instruction has **no operands** (e.g., immediate), directly set **Vj** or **Vk**.
+
+3. **Interface Design for ROB and RS in Issue**:
+   - Allocate entries for **ROB** and **RS** and initialize them based on decoded instruction fields.
+   - Ensure that the **RS** correctly reflects the instruction type and **ROB** tracks the in-progress instruction for later commit.
+
+4. **Testing**:
+   - Test with a mix of **ALU**, **load**, **store**, and **branch** instructions.
+   - Verify if **ROB** and **RS** are correctly updated for each instruction type.
+
+---
+
+### **Stage 2: Execute**
+
+**Objective:**
+- The **Execute Stage** runs instructions that are ready. This involves checking whether the operands are available and dispatching to functional units for execution.
+- For **arithmetic instructions**, **load/store instructions**, and **branches**, ensure that operations are dispatched to the correct functional units.
+
+**Prompts:**
+
+1. **Data Structures Affected**:
+   - **RS**: Track the readiness of operands and ensure that the appropriate functional units are available.
+   - **Functional Units (FUs)**: Dispatch instructions to ALU, MUL, or MEM units based on the instruction type.
+
+2. **Implementing the Execute Stage**:
+   - Iterate through the **RS** table and check if both operands (`Vj`, `Vk`) are available.
+   - If **Qj** and **Qk** are cleared, begin computation for arithmetic and logic instructions.
+   - For **loads**, compute the effective address and initiate memory access.
+   - For **stores**, check if operands are ready and initiate memory write.
+
+3. **Handling Functional Units**:
+   - Implement the logic to dispatch instructions to the **ALU**, **MUL**, and **MEM** units.
+   - Track the availability of functional units (e.g., we have 4 ALUs, 1 memory unit, and 4 MUL units).
+   - Introduce latency for **MUL** (4 cycles) and other instruction types (1 cycle for ALU and MEM).
+
+4. **Testing**:
+   - Test for simultaneous execution of multiple arithmetic instructions.
+   - Ensure correct dispatch of **store** and **load** operations to memory.
+   - Track the status of the **Functional Units** and validate proper execution.
+
+---
+
+### **Stage 3: WriteBack**
+
+**Objective:**
+- In the **WriteBack Stage**, results of completed instructions are written back to the **ROB** and **RS**.
+- Update the **RS** and **ROB** when an instruction finishes execution.
+
+**Prompts:**
+
+1. **Data Structures Affected**:
+   - **RS**: Clear `Busy` flag and update results for instructions that have finished executing.
+   - **ROB**: Set `Ready` and update the `Value` field of the ROB entry.
+
+2. **Implementing the WriteBack Stage**:
+   - Iterate through the **RS** table and identify instructions that have completed.
+   - Update corresponding **ROB** entry with the result and mark the instruction as **Ready**.
+   - Clear the **Busy** flag in the **RS**.
+   - Update **RS** and **ROB** when operands are forwarded (from other instructions in the pipeline).
+
+3. **Testing**:
+   - Verify that **ROB** and **RS** are updated correctly after execution.
+   - Check if **WriteBack** clears the **Busy** flags in the **RS** and updates the correct **ROB** entries.
+
+---
+
+### **Stage 4: Commit**
+
+**Objective:**
+- The **Commit Stage** writes the final results to the **register file** or memory and frees the **ROB** entry.
+- Only instructions that have passed all previous stages (out-of-order execution) will be committed in **program order**.
+
+**Prompts:**
+
+1. **Data Structures Affected**:
+   - **ROB**: Commit the result of the instruction (write to register or memory) and mark the entry as **not busy**.
+   - **Register Status Table**: Clear the **busy** flag for the register once the instruction commits.
+
+2. **Implementing the Commit Stage**:
+   - Fetch the instruction at the **head of the ROB** (i.e., the instruction that is ready to commit).
+   - If it is a **store**, write the value to memory. If it is an **arithmetic instruction**, write the result to the register file.
+   - Update **ROB** and **Register Status Table** accordingly.
+
+3. **Testing**:
+   - Verify that **commit** happens in program order (even for out-of-order instructions).
+   - Ensure that **registers** and **memory** are updated correctly after commit.
+
+---
+
+### **General Testing Strategy:**
+1. Create **test cases** with a mix of instructions, including:
+   - **Load**, **Store**, **ALU**, **MUL**, **Branch** instructions.
+2. Ensure **out-of-order execution** for instructions with available operands, but **in-order commit** (i.e., commit instructions in the order they were issued).
+3. Validate that **ROB**, **RS**, and **Register Status Table** are properly updated and cleared.
+
+---
+
+This **metaprompt** will help guide you through each step of implementing **Tomasulo’s Algorithm** in your `Simulator.cpp`. Each stage is broken down with its associated data structures, and you will be guided on how to update these structures as well as the interactions between them.
+
+Let me know if you need any additional clarifications or specific examples!
+
+
+
+Based On the tomasolu class interface and issue stage you generated above, and the simulator.cpp I upload eariler, help me implement issue stage.

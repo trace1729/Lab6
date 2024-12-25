@@ -34,20 +34,18 @@ public:
         int value;
         bool ready = false;   // Whether the result is ready
         bool busy = false;    // Whether the instruction is under execution
-        int remainingExecCycles = 0; 
-        Pipe_Op op; //TODO contains duplicate, fix it later
-        RISCV::InstType instructionType;
-        std::string instStr = "";
-        InstructionState state;  
+        uint64_t addr = 0;
+        Instruction inst; 
     };
 
     // Reservation Station (RS) entry structure
     struct ReservationStation {
-        std::string op;        // Operation type (e.g., ADD, SUB, LOAD, STORE)
+        RISCV::InstType op;        // Operation type (e.g., ADD, SUB, LOAD, STORE)
         int vj = 0, vk = 0;   // Values for operands
         int qj = -1, qk = -1; // ROB entry indexes for operands, -1 if value is available
         int dest = -1;         // ROB index for result destination
         bool busy = false;     // Whether the functional unit is busy
+        uint64_t addr = 0;
     };
 
     // Register Status Data Structure (RSD) for tracking register usage
@@ -80,7 +78,9 @@ public:
     FunctionUnitType mapInstructionToFU(RISCV::InstType type);
     std::string findAvailableFU(FunctionUnitType f_type);
     bool execArthimetic(Instruction* inst, Simulator* simu);
+    bool execMem(Instruction* score_inst, Simulator* simu);
     bool decode(uint32_t inst, uint64_t* reg, Instruction* score_inst, Simulator* simu);
+    bool hasStoreConflict(int robIndex);
 
 
     // Debugging methods

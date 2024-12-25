@@ -164,8 +164,13 @@ void Simulator::issue() {
     int rt = ins.srcReg2;                        // Source register 2 (if applicable)
 
     // Check for branches or jumps (stall if needed)
-    if (isJump(instType) || isBranch(instType)) {
-        return; // Stall until branch/jump is resolved
+    for (auto& entry: tomasulo->rob) {
+      // if any jump or branch inst is in rob, do not issue new inst
+      if (isJump(entry.inst.opType) || isBranch(entry.inst.opType)) {
+        if (entry.busy) {
+          return; 
+        }
+      }
     }
 
     // Step 1: Allocate ROB Entry
@@ -181,18 +186,18 @@ void Simulator::issue() {
     }
 
     Tomasulo::ReservationStation& rsTableEntry = tomasulo->rs[rsIndex];
-    
+
     ins.state = InstructionState::ISSUE;
 
     // Step 3: Update RS[r] for rs and rt
-    if (rs >= 0) { // If rs is a valid register
+    if (isIType(instType) || isRType(instType) || isSType(instType) || isBType(instType)) { // If rs is a valid register
         if (tomasulo->registerStatus[rs].busy) {
             int robIndexSrc = tomasulo->registerStatus[rs].robIndex;
             Tomasulo::ROBEntry& robEntry = tomasulo->rob[robIndexSrc];
             if (robEntry.ready) {
                 rsTableEntry.vj = robEntry.value;
                 rsTableEntry.qj = -1; // Operand is ready
-            } else {
+            } else { 
                 rsTableEntry.qj = robIndexSrc; // Tag ROB index
             }
         } else {
@@ -201,7 +206,7 @@ void Simulator::issue() {
         }
     }
 
-    if (rt >= 0) { // If rt is a valid register
+    if (isRType(instType) || isSType(instType) || isBType(instType)) { // If rt is a valid register
         Tomasulo::RegisterStatus& regStatusEntry = tomasulo->registerStatus[rt];
         if (regStatusEntry.busy) {
             int robIndexSrc = regStatusEntry.robIndex;
@@ -224,30 +229,140 @@ void Simulator::issue() {
     rsTableEntry.op = instType;   // Instruction type
 
     // Step 5: Update ROB Entry
-    tomasulo->rob[robIndex].instructionType = instType;
-    tomasulo->rob[robIndex].destination = rd;
+    ins.opType = instType;
+    ins.remainingExecCycles = ins.remainingExecCycles;
+    tomasulo->rob[robIndex].inst = ins;
     tomasulo->rob[robIndex].ready = false; // Set to true in WriteBack
 
-    // Step 6: Update Register Status Table for rd
-    if (rd >= 0) { // For instructions that have a destination register
+    // step 7: store immdiate for load / store type
+    if (isReadMem(instType)) {
+      rsTableEntry.addr = ins.op.offset;
+    }
+
+    if (isWriteMem(instType)) {
+      rsTableEntry.addr = ins.op.offset;
+    }
+
+    // Step 6: if inst contains rd field, register it in register status
+    if (isIType(instType) || isRType(instType) || isUType(instType) || isJType(instType)) { // For instructions that have a destination register
+        tomasulo->rob[robIndex].destination = rd;
         tomasulo->registerStatus[rd].robIndex = robIndex;
         tomasulo->registerStatus[rd].busy = true;
     }
 
-    // Step 7: Increment PC
     pc += 4; // Move to the next instruction
 }
 
 void Simulator::execute() {
-  
+   for (size_t i = 0; i < tomasulo->rs.size(); ++i) {
+        Tomasulo::ReservationStation &currentRS = tomasulo->rs[i];
+
+        // Skip entries that are not busy or already executing
+        if (!currentRS.busy) continue;
+        int robIndex = currentRS.dest;
+        Tomasulo::ROBEntry& robEntry = tomasulo->rob[robIndex];
+        // Check if both operands are ready
+        if (robEntry.inst.state == InstructionState::ISSUE) {
+          // For simplicty, do not consider multiple ALUs or MULs
+          robEntry.inst.state = InstructionState::EXECUTE;
+        }
+
+        if (robEntry.inst.state == InstructionState::EXECUTE) {
+          if (robEntry.inst.remainingExecCycles == 0) {
+            if (isReadMem(robEntry.inst.opType)) {
+              // check is any store ahead
+              if (!tomasulo->hasStoreConflict(robIndex)) {
+                robEntry.inst.state = InstructionState::WRITE_BACK;
+                tomasulo->execMem(&robEntry.inst, this);
+                robEntry.value = robEntry.inst.op.out;
+              }
+            } else if (isWriteMem(robEntry.inst.opType)) {
+                if (currentRS.qj == -1) {
+                  robEntry.inst.state = InstructionState::WRITE_BACK;
+                  robEntry.addr = currentRS.addr + currentRS.vj;
+                }
+            } else {
+              if (currentRS.qj == -1 && currentRS.qk == -1) {
+                robEntry.inst.state = InstructionState::WRITE_BACK;
+                tomasulo->execArthimetic(&robEntry.inst, this);
+                robEntry.value = robEntry.inst.op.out;
+              }
+            }
+          }
+        }
+    }
 }
 
 void Simulator::writeBack() {
-  
+  // Iterate through the Reservation Stations (RS)
+  for (size_t i = 0; i < tomasulo->rs.size(); ++i) {
+    Tomasulo::ReservationStation &currentRS = tomasulo->rs[i];
+
+    // Skip if the Reservation Station is not busy or has no destination ROB
+    // entry
+    if (!currentRS.busy || currentRS.dest == -1)
+      continue;
+
+    // Check if the corresponding ROB entry is ready
+    int robIndex = currentRS.dest;
+    Tomasulo::ROBEntry &robEntry = tomasulo->rob[robIndex];
+
+    if (isWriteMem(robEntry.inst.opType)) {
+      robEntry.value = currentRS.vk;
+      continue;
+    }
+
+    // If the ROB entry is ready, write back the result
+    if (robEntry.inst.state == InstructionState::WRITE_BACK) {
+      // Clear the Reservation Station
+      currentRS.busy = false;
+
+      // Forward the result to other instructions waiting on it
+      for (auto &rs : tomasulo->rs) {
+        if (rs.qj == robIndex) {
+          rs.vj = robEntry.value; // Forward the value
+          rs.qj = -1;             // Clear dependency
+        }
+        if (rs.qk == robIndex) {
+          rs.vk = robEntry.value; // Forward the value
+          rs.qk = -1;             // Clear dependency
+        }
+      }
+    }
+  }
 }
 
 void Simulator::commit() {
-  
+   // Check the instruction at the head of the ROB
+    Tomasulo::ROBEntry &headROB = tomasulo->rob[tomasulo->robHead];
+
+    // If the head entry is not busy or not ready, stall commit
+    if (!headROB.busy || !headROB.ready) {
+        return;
+    }
+
+    // Handle commit based on the instruction type
+    if (isWriteMem(headROB.inst.opType)) {
+        tomasulo->execMem(&headROB.inst, this);
+        // For Store, write the value to memory
+    } else {
+        // For other instructions, write the result to the register file
+        int destReg = headROB.destination;
+        if (destReg >= 0 && destReg < 32) {
+            reg[destReg] = headROB.value;
+        }
+        // Clear the Register Status Table if this ROB entry is the current register dependency
+        if (tomasulo->registerStatus[destReg].robIndex == tomasulo->robHead) {
+            tomasulo->registerStatus[destReg].busy = false;
+            tomasulo->registerStatus[destReg].robIndex = -1;
+        }
+    }
+
+    // Mark the ROB entry as no longer busy
+    headROB.busy = false;
+
+    // Advance the ROB head pointer (circular buffer logic)
+    tomasulo->robHead = (tomasulo->robHead + 1) % tomasulo->rob.size();
 }
 
 void Simulator::pipeRecover(uint32_t destPC) {

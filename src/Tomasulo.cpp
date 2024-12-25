@@ -15,7 +15,7 @@ int Tomasulo::allocateROBEntry(RISCV::InstType instType, int destination) {
     // Try to allocate an entry in the ROB
     if (rob[robTail].busy) return -1; // ROB is full
     rob[robTail].busy = true;
-    rob[robTail].instructionType = instType;
+    rob[robTail].inst.opType = instType;
     rob[robTail].destination = destination;
     rob[robTail].ready = false;
     int allocatedIndex = robTail;
@@ -24,7 +24,7 @@ int Tomasulo::allocateROBEntry(RISCV::InstType instType, int destination) {
 }
 
 int Tomasulo::allocateRS(InstType op, int dest, int qj, int qk) {
-    for (int i = 0; i < rs.size(); ++i) {
+    for (size_t i = 0; i < rs.size(); ++i) {
         if (!rs[i].busy) {
             rs[i].op = op;
             rs[i].vj = 0;
@@ -61,32 +61,6 @@ FunctionUnitType Tomasulo::mapInstructionToFU(RISCV::InstType type) {
     return FunctionUnitType::ALU;
 }
 
-std::string Tomasulo::findAvailableFU(FunctionUnitType f_type) {
-    std::vector<std::string> alus = {"alu0", "alu1", "alu2", "alu3"};
-    std::vector<std::string> muls = {"mul0", "mul1", "mul2", "mul3"};
-
-    // if (f_type == FunctionUnitType::ALU) {
-    //     for (auto alu_name: alus) {
-    //         if (!functionalUnits[alu_name].busy) {
-    //             return alu_name;
-    //         }
-    //     }   
-    //     dbgprintf("alu is unavailable\n");
-    // } else if (f_type == FunctionUnitType::MUL) {
-    //     for (auto mul_name: muls) {
-    //         if (!functionalUnits[mul_name].busy) {
-    //             return mul_name;
-    //         }
-    //     }
-    //     dbgprintf("mul is unavailable\n");
-    // } else {
-    //     if (!functionalUnits["mem"].busy) {
-    //         return "mem";
-    //     }
-    //     dbgprintf("mem is unavailable\n");
-    // }
-    return "";
-}
 
 
 void Tomasulo::issue() {
@@ -574,6 +548,167 @@ bool Tomasulo::decode(uint32_t inst, uint64_t* reg, Instruction* score_inst, Sim
     return true;
 }
 
+bool Tomasulo::hasStoreConflict(int robIndex) {
+    int current = robHead;
+    while (current != robIndex) {
+        const ROBEntry &entry = rob[current];
+
+        // Check if it's a Store instruction
+        if (isWriteMem(entry.inst.opType)) {
+            // Check if the Store has the same address and is ahead in the ROB
+           return true;
+        }
+
+        // Move to the next ROB entry
+        current = (current + 1) % rob.size();
+    }
+    return false; // No conflict detected
+}
+
+bool Tomasulo::execMem(Instruction* score_inst, Simulator* simu) {
+  
+  InstType opType = score_inst->opType;
+  // out op2 memLen
+  uint64_t out = score_inst->op.out;
+  uint32_t memLen = score_inst->op.memLen;
+  uint64_t op2 = score_inst->op.op2;
+  uint64_t op1 = score_inst->op.op1;
+  uint64_t offset = score_inst->op.offset;
+
+  bool writeMem = false, readMem = false, readSignExt = false;
+  score_inst->op.writeReg = false;
+  
+  switch (opType) {
+    case LB:
+      readMem = true;
+      memLen = 1;
+      out = op1 + offset;
+      readSignExt = true;
+      break;
+    case LH:
+      readMem = true;
+      memLen = 2;
+      out = op1 + offset;
+      readSignExt = true;
+      break;
+    case LW:
+      readMem = true;
+      memLen = 4;
+      out = op1 + offset;
+      readSignExt = true;
+      break;
+    case LD:
+      readMem = true;
+      memLen = 8;
+      out = op1 + offset;
+      readSignExt = true;
+      break;
+    case LBU:
+      readMem = true;
+      memLen = 1;
+      out = op1 + offset;
+      break;
+    case LHU:
+      readMem = true;
+      memLen = 2;
+      out = op1 + offset;
+      break;
+    case LWU:
+      readMem = true;
+      memLen = 4;
+      out = op1 + offset;
+      break;
+    case SB:
+      writeMem = true;
+      memLen = 1;
+      out = op1 + offset;
+      op2 = op2 & 0xFF;
+      break;
+    case SH:
+      writeMem = true;
+      memLen = 2;
+      out = op1 + offset;
+      op2 = op2 & 0xFFFF;
+      break;
+    case SW:
+      writeMem = true;
+      memLen = 4;
+      out = op1 + offset;
+      op2 = op2 & 0xFFFFFFFF;
+      break;
+    case SD:
+      writeMem = true;
+      memLen = 8;
+      out = op1 + offset;
+      break;
+    default:break;
+  }
+  
+  bool good = false;
+
+  if (writeMem){
+    dbgprintf("m[%x] = %x\n", out, op2);
+    switch (memLen) {
+    case 1:
+      good = simu->memory->setByte(out, op2);
+      break;
+    case 2:
+      good = simu->memory->setShort(out, op2);
+      break;
+    case 4:
+      good = simu->memory->setInt(out, op2);
+      break;
+    case 8:
+      good = simu->memory->setLong(out, op2);
+      break;
+    default:
+      simu->panic("Unknown memLen %d\n", memLen);
+    }
+  }
+
+  if (!good) {
+    simu->panic("Invalid Mem Access!\n");
+  }
+
+  if (readMem) {
+    dbgprintf("read from %x\n", out);
+    switch (memLen) {
+    case 1:
+      if (readSignExt) {
+        out = (int64_t)simu->memory->getByte(out);
+      } else {
+        out = (uint64_t)simu->memory->getByte(out);
+      }
+      break;
+    case 2:
+      if (readSignExt) {
+        out = (int64_t)simu->memory->getShort(out);
+      } else {
+        out = (uint64_t)simu->memory->getShort(out);
+      }
+      break;
+    case 4:
+      if (readSignExt) {
+        out = (int64_t)simu->memory->getInt(out);
+      } else {
+        out = (uint64_t)simu->memory->getInt(out);
+      }
+      break;
+    case 8:
+      if (readSignExt) {
+        out = (int64_t)simu->memory->getLong(out);
+      } else {
+        out = (uint64_t)simu->memory->getLong(out);
+      }
+      break;
+    default:
+      simu->panic("Unknown memLen %d\n", memLen);
+    }
+  }
+  return true;
+}
+
+
 bool Tomasulo::execArthimetic(Instruction* inst, Simulator* simu) {
   
   InstType instType = inst->opType;
@@ -729,7 +864,7 @@ bool Tomasulo::execArthimetic(Instruction* inst, Simulator* simu) {
 void Tomasulo::printROB() {
     std::cout << "Reorder Buffer (ROB):\n";
     for (auto& entry : rob) {
-        std::cout << "Type: " << entry.instructionType
+        std::cout << "Type: " << entry.inst.opType
                   << ", Dest: " << entry.destination
                   << ", Ready: " << entry.ready
                   << ", Value: " << entry.value
@@ -752,19 +887,7 @@ void Tomasulo::printRS() {
 
 void Tomasulo::printRegisterStatus() {
     std::cout << "Register Status:\n";
-    for (int i = 0; i < registerStatus.size(); ++i) {
+    for (size_t i = 0; i < registerStatus.size(); ++i) {
         std::cout << "Reg " << i << ": ROB Index: " << registerStatus[i].robIndex << ", Busy: " << registerStatus[i].busy << "\n";
     }
-}
-
-bool Tomasulo::isArithmeticInstruction(const std::string& op) {
-    return (op == "ADD" || op == "SUB");
-}
-
-bool Tomasulo::isLoadInstruction(const std::string& op) {
-    return (op == "LW" || op == "LD");
-}
-
-bool Tomasulo::isStoreInstruction(const std::string& op) {
-    return (op == "SW" || op == "SD");
 }

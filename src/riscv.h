@@ -165,6 +165,58 @@ inline bool isWriteMem(InstType instType) {
   return false;
 }
 
+inline bool isRType(InstType instType) {
+    // Check if the instruction is an R-type instruction
+    if (instType == ADD || instType == SUB || instType == SLL || instType == SLT || instType == SLTU ||
+        instType == XOR || instType == SRL || instType == SRA || instType == OR || instType == AND ||
+        instType == MUL || instType == MULH || instType == DIV || instType == REM ||
+        instType == ADDW || instType == SUBW || instType == SLLW || instType == SRLW || instType == SRAW) {
+        return true;
+    }
+    return false;
+}
+
+inline bool isIType(InstType instType) {
+    // Check if the instruction is an I-type instruction
+    if (instType == ADDI || instType == SLTI || instType == SLTIU || instType == XORI || instType == ORI ||
+        instType == ANDI || instType == SLLI || instType == SRLI || instType == SRAI ||
+        instType == LW || instType == LH || instType == LB || instType == LBU || instType == LHU ||
+        instType == ADDIW || instType == SLLIW || instType == SRLIW || instType == SRAIW ||
+        instType == JALR) {
+        return true;
+    }
+    return false;
+}
+
+inline bool isUType(InstType instType) {
+    if (instType == LUI || instType == AUIPC) {
+        return true;
+    }
+    return false;
+}
+
+inline bool isBType(InstType instType) {
+    if (instType == BEQ || instType == BNE || instType == BLT || instType == BGE ||
+        instType == BLTU || instType == BGEU) {
+        return true;
+    }
+    return false;
+}
+
+inline bool isSType(InstType instType) {
+    if (instType == SB || instType == SH || instType == SW || instType == SD) {
+        return true;
+    }
+    return false;
+}
+
+inline bool isJType(InstType instType) {
+    if (instType == JAL) {
+        return true;
+    }
+    return false;
+}
+
 
 
 } // namespace RISCV

@@ -1,0 +1,87 @@
+Here is a detailed **metaprompt** to guide you through creating the web-based visualization of Tomasulo's algorithm step by step:
+
+---
+
+### **Metaprompt: Step-by-Step Guide for Implementing Tomasulo Debugging Web Interface**
+
+#### **Step 1: JSON Data Generation**
+1. **Objective**: Generate JSON files from the simulator for each cycle of Tomasulo's execution.
+2. **Task**: Write C++ code to serialize the `ROB`, `RS`, `RegisterStatus`, and `regs` into a JSON object for each cycle.
+3. **Prompt**:
+   - Write a C++ function using `nlohmann/json` to serialize the following data structures into a JSON array:
+     1. Current cycle number.
+     2. `std::vector<ROBEntry>`: Serialize each entry, including fields such as `destination`, `value`, `ready`, `busy`, `addr`, and `inst`.
+     3. `std::vector<ReservationStation>`: Serialize each entry with fields such as `op`, `vj`, `vk`, `qj`, `qk`, `dest`, `busy`, and `addr`.
+     4. `std::vector<RegisterStatus>`: Serialize each entry with `robIndex` and `busy`.
+     5. `simulator->regs[]`: Serialize as an array of 32 integers, each representing a register value.
+   - Ensure the function appends each cycle's data to a single JSON file (`tomasulo.json`).
+
+#### **Step 2: Vue.js Project Setup**
+1. **Objective**: Create a modern Vue.js project to visualize Tomasulo's execution.
+2. **Task**: Set up the Vue.js 3 environment with modern UI libraries.
+3. **Prompt**:
+   - Install Vue.js 3 using `create-vue` scaffold.
+   - Add Tailwind CSS for styling.
+   - Include `Pinia` for state management.
+   - Add a file upload component to load the generated `tomasulo.json` file into the application.
+
+#### **Step 3: State Management with Pinia**
+1. **Objective**: Manage the loaded JSON data and the current cycle state.
+2. **Task**: Use Pinia to handle Tomasulo's debugging state.
+3. **Prompt**:
+   - Create a Pinia store that:
+     1. Stores the `tomasulo.json` data (cycles, ROB, RS, RegisterStatus, and regs).
+     2. Tracks the current cycle index.
+   - Write actions to load JSON data, move to the next cycle, go to the previous cycle, and jump to a specific cycle.
+
+#### **Step 4: Build Components to Display Debugging Information**
+1. **Objective**: Create reusable Vue.js components for visualizing Tomasulo's data.
+2. **Prompt**:
+   - Create the following components:
+     1. **ROBTable.vue**: Displays the `ROB` as a table with headers like `Destination`, `Value`, `Ready`, `Busy`, etc.
+     2. **RSTable.vue**: Displays the `ReservationStation` as a table with headers like `Operation`, `Vj`, `Vk`, `Qj`, `Qk`, `Dest`, etc.
+     3. **RegisterStatusTable.vue**: Displays `RegisterStatus` in a grid format, similar to registers, showing `robIndex` and `busy`.
+     4. **RegistersTable.vue**: Displays `regs` in a grid format (4 rows, 8 registers per row, with values in hexadecimal).
+     5. **CycleControls.vue**: Displays navigation buttons (First Cycle, Previous Cycle, Next Cycle, Last Cycle) and a text box for jumping to a specific cycle.
+
+#### **Step 5: Glassmorphism UI Design**
+1. **Objective**: Design the UI with macOS-like aesthetics using Glassmorphism and rounded rectangles.
+2. **Prompt**:
+   - Style all components with:
+     1. Transparent backgrounds using `rgba(255, 255, 255, 0.1)`.
+     2. Soft shadows and rounded borders (`box-shadow` and `border-radius`).
+     3. A consistent font like `JetBrains Mono` for debugging data.
+   - Add responsiveness to adapt to different screen sizes.
+
+#### **Step 6: Component Integration into `App.vue`**
+1. **Objective**: Display the components in a structured layout.
+2. **Prompt**:
+   - Organize the layout in `App.vue` with two columns:
+     1. **Left Column**:
+        - ROB Table (top).
+        - Reservation Station Table (below ROB).
+     2. **Right Column**:
+        - Register Status Table (top).
+        - Registers Table (below Register Status).
+     - Add navigation controls at the top of the page.
+
+#### **Step 7: Interaction and Debugging Features**
+1. **Objective**: Add functionality for interactive debugging.
+2. **Prompt**:
+   - Ensure the `CycleControls` component updates the state in Pinia and triggers UI re-renders.
+   - Highlight changes in the ROB, RS, and Register Status when moving between cycles (e.g., use a background color for updated rows).
+
+#### **Step 8: Testing and Refinement**
+1. **Objective**: Test the web app with sample JSON data.
+2. **Prompt**:
+   - Provide mock JSON data for Tomasulo's execution and test all features.
+   - Add error handling for invalid or missing JSON files.
+
+---
+
+### **How to Use the Metaprompt**
+1. Follow the steps sequentially for implementation.
+2. Use each sub-prompt to focus on specific functionality or design elements.
+3. Test and refine as you progress through the steps.
+
+Let me know if you’d like me to generate specific code or detailed instructions for any step!

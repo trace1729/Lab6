@@ -108,10 +108,10 @@ void Simulator::simulate() {
 
     // THE EXECUTION ORDER of these functions are important!!!
     // Changing them will introduce strange bugs
-    // this->writeBack();
-    // this->execute();
-    // this->read_operand();
-    // this->issue();
+    this->commit();
+    this->writeBack();
+    this->execute();
+    this->issue();
 
     saveCycleData(history.cycleCount);
     this->history.cycleCount++;
@@ -134,12 +134,12 @@ void Simulator::simulate() {
         }
       }
     }
-    if (cnt++ > 20) return;
+    if (cnt++ > 20) break;
     this->tomasulo->printROB();
     this->tomasulo->printRS();
     this->tomasulo->printRegisterStatus();
   }
-  // saveSimulationData("simulation.json");
+  saveSimulationData("simulation.json");
 }
 
 Instruction fetchInstruction(uint64_t inst);
@@ -489,28 +489,79 @@ void Simulator::panic(const char *format, ...) {
 
 using json = nlohmann::json;
 
+// Convert Instruction to JSON
+void to_json(json& j, const Instruction& inst) {
+    j = json{
+        {"pc", inst.pc},
+        {"destReg", inst.destReg},
+        {"srcReg1", inst.srcReg1},
+        {"srcReg2", inst.srcReg2},
+        {"state", static_cast<int>(inst.state)},
+        {"remainingExecCycles", inst.remainingExecCycles},
+        {"opType", static_cast<int>(inst.opType)},
+        {"inst", inst.inst},
+        {"processingUnit", inst.processingUnit},
+        {"instStr", inst.instStr}
+    };
+}
+
+// Convert ROBEntry to JSON
+void to_json(json& j, const Tomasulo::ROBEntry& entry) {
+    j = json{
+        {"destination", entry.destination},
+        {"value", entry.value},
+        {"ready", entry.ready},
+        {"busy", entry.busy},
+        {"addr", entry.addr},
+        {"inst", entry.inst}
+    };
+}
+
+// Convert ReservationStation to JSON
+void to_json(json& j, const Tomasulo::ReservationStation& rs) {
+    j = json{
+        {"op", static_cast<int>(rs.op)},
+        {"vj", rs.vj},
+        {"vk", rs.vk},
+        {"qj", rs.qj},
+        {"qk", rs.qk},
+        {"dest", rs.dest},
+        {"busy", rs.busy},
+        {"addr", rs.addr}
+    };
+}
+
+// Convert RegisterStatus to JSON
+void to_json(json& j, const Tomasulo::RegisterStatus& rs) {
+    j = json{
+        {"robIndex", rs.robIndex},
+        {"busy", rs.busy}
+    };
+}
+
 void Simulator::saveCycleData(int currentCycle) {
-    // json cycleJson;
-
-    // // Add current cycle number
-    // cycleJson["cycle"] = currentCycle;
-
-    // cycleJson["scoreboard"] = this->scoreboard->toJson();
-
-    // // Add register values
-    // cycleJson["reg"] = std::vector<uint64_t>(std::begin(reg), std::end(reg));
-
-    // // Append to simulationData
-    // simulationData["cycles"].push_back(cycleJson);
+  json cycleJson;
+  // Add current cycle number
+  cycleJson["cycle"] = currentCycle;
+  // Serialize ROB
+  cycleJson["rob"] = tomasulo->rob;
+  // Serialize Reservation Stations
+  cycleJson["rs"] = tomasulo->rs;
+  // Serialize Register Status
+  cycleJson["registerStatus"] = tomasulo->registerStatus;
+  // Add register values
+  cycleJson["reg"] = std::vector<uint64_t>(std::begin(reg), std::end(reg));
+  // Append to simulationData
+  simulationData["cycles"].push_back(cycleJson);
 }
 
 void Simulator::saveSimulationData(const std::string& filename) const {
-    // std::ofstream file(filename);
-    // if (file.is_open()) {
-    //     file << simulationData.dump(4); // Pretty-print with 4-space indentation
-    //     file.close();
-    //     std::cout << "Simulation data saved to " << filename << std::endl;
-    // } else {
-    //     std::cerr << "Failed to open file: " << filename << std::endl;
-    // }
+    std::ofstream file(filename);
+    if (file.is_open()) {
+        file << simulationData.dump(4); // Pretty-print with 4-space indentation
+        file.close();
+        std::cout << "Simulation data saved to " << filename << std::endl;
+    } else {
+        std::cerr << "Failed to open file: " << filename << std::endl;
+    }
 }
